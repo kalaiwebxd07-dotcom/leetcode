@@ -88,9 +88,9 @@ header {
     margin-bottom: 10px;
 }
 
-.logo img {
-    height: 40px;
-    width: auto;
+.logo i {
+    font-size: 2.5rem;
+    color: var(--accent-color);
     filter: drop-shadow(0 0 10px rgba(255, 161, 22, 0.4));
 }
 
