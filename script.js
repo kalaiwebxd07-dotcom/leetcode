@@ -143,7 +143,13 @@ async function fetchAllData() {
 
     for (const username of friends) {
         try {
-            const res = await fetch(`/api/user/${username}`);
+            let baseUrl = '';
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                if (window.location.port === '5500') {
+                    baseUrl = 'http://localhost:3000';
+                }
+            }
+            const res = await fetch(`${baseUrl}/api/user/${username}`);
             const data = await res.json();
 
             if (data.error) {
