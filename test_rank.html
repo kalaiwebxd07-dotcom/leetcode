@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Rank Test</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: #fff;
+            font-family: monospace;
+            padding: 20px;
+        }
+
+        pre {
+            background: #333;
+            padding: 15px;
+            border-radius: 5px;
+            overflow: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>API Response Test</h1>
+    <p>Fetching: <code id="url">...</code></p>
+    <pre id="output">Loading...</pre>
+
+    <script>
+        async function run() {
+            const username = 'kalai_script';
+            const url = `http://localhost:3000/api/user/${username}?t=${Date.now()}`;
+            document.getElementById('url').textContent = url;
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+            } catch (e) {
+                document.getElementById('output').textContent = 'Error: ' + e.message;
+            }
+        }
+        run();
+    </script>
+</body>
+
+</html>

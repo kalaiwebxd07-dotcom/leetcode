@@ -18,6 +18,9 @@ const fetchLeetCodeData = (username) => {
                             count
                         }
                     }
+                    profile {
+                        ranking
+                    }
                 }
                 recentSubmissionList(username: $username, limit: 20) {
                     title
@@ -25,6 +28,10 @@ const fetchLeetCodeData = (username) => {
                     timestamp
                     statusDisplay
                     lang
+                }
+                userContestRanking(username: $username) {
+                    attendedContestsCount
+                    globalRanking
                 }
             }
         `;
@@ -159,7 +166,7 @@ const server = http.createServer(async (req, res) => {
     // API Handler
     if (req.url.startsWith('/api/user/')) {
         const parts = req.url.split('/');
-        const username = parts[3]; // /api/user/USERNAME
+        const username = parts[3].split('?')[0]; // /api/user/USERNAME
 
         if (!username) {
             res.writeHead(400, { 'Content-Type': 'application/json' });

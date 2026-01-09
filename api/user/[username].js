@@ -26,6 +26,9 @@ export default async function handler(req) {
                     count
                 }
             }
+            profile {
+                ranking
+            }
         }
         recentSubmissionList(username: $username, limit: 20) {
             title
@@ -33,6 +36,10 @@ export default async function handler(req) {
             timestamp
             statusDisplay
             lang
+        }
+        userContestRanking(username: $username) {
+            attendedContestsCount
+            globalRanking
         }
     }
     `;
