@@ -9,7 +9,9 @@ let currentLeaderboardData = [];
 
 // Event Listeners
 addBtn.addEventListener('click', addFriend);
-document.getElementById('downloadBtn').addEventListener('click', exportToCSV);
+document.getElementById('downloadCsv').addEventListener('click', () => exportData('csv'));
+document.getElementById('downloadExcel').addEventListener('click', () => exportData('excel'));
+document.getElementById('downloadPdf').addEventListener('click', () => exportData('pdf'));
 usernameInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') addFriend();
 });
@@ -29,45 +31,75 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-function exportToCSV() {
+function exportData(format) {
     if (currentLeaderboardData.length === 0) {
         alert("No data to export!");
         return;
     }
 
-    const headers = ["Rank", "Username", "Status", "Problems Today", "Total Solved", "Global Rank", "Contests", "Easy", "Medium", "Hard", "Last Solved Problem", "Last Solved Time"];
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filename = `leetcode_leaderboard_${timestamp}`;
 
-    const rows = currentLeaderboardData.map((user, index) => {
+    // Prepare Data for Export
+    const exportData = currentLeaderboardData.map((user, index) => {
         const lastSub = user.recentSubs.length > 0 ? user.recentSubs[0] : null;
-        const lastProblem = lastSub ? lastSub.title : "-";
-        const lastTime = lastSub ? new Date(parseInt(lastSub.timestamp) * 1000).toLocaleString() : "-";
-
-        return [
-            index + 1,
-            user.username,
-            user.solvedToday ? "Active" : "Sleeping",
-            user.solvedTodayCount,
-            user.totalSolved,
-            user.globalRanking || "-",
-            user.attendedContestsCount,
-            user.easy,
-            user.medium,
-            user.hard,
-            `"${lastProblem}"`, // Quote to handle commas in titles
-            `"${lastTime}"`
-        ];
+        return {
+            "Rank": index + 1,
+            "Username": user.username,
+            "Status": user.solvedToday ? "Active" : "Sleeping",
+            "Problems Today": user.solvedTodayCount,
+            "Total Solved": user.totalSolved,
+            "Global Rank": user.globalRanking || "-",
+            "Contests": user.attendedContestsCount,
+            "Easy": user.easy,
+            "Medium": user.medium,
+            "Hard": user.hard,
+            "Last Solved": lastSub ? lastSub.title : "-"
+        };
     });
 
-    const csvContent = [
-        headers.join(","),
-        ...rows.map(row => row.join(","))
-    ].join("\n");
+    if (format === 'csv') {
+        const headers = Object.keys(exportData[0]);
+        const rows = exportData.map(row => Object.values(row).map(val => `"${val}"`).join(","));
+        const csvContent = [headers.join(","), ...rows].join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        saveFile(blob, `${filename}.csv`);
+    }
+    else if (format === 'excel') {
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Leaderboard");
+        XLSX.writeFile(wb, `${filename}.xlsx`);
+    }
+    else if (format === 'pdf') {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        doc.text("LeetCode Leaderboard", 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
+
+        const tableColumn = Object.keys(exportData[0]);
+        const tableRows = exportData.map(row => Object.values(row));
+
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: 25,
+            theme: 'grid',
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [41, 128, 185] }
+        });
+
+        doc.save(`${filename}.pdf`);
+    }
+}
+
+function saveFile(blob, filename) {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `leetcode_leaderboard_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", filename);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
