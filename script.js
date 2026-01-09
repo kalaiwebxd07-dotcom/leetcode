@@ -134,47 +134,97 @@ async function addFriend() {
     }
 }
 
-async function fetchUserData(username) {
-    try {
-        const response = await fetch(`/api/user/${username}`);
+async function fetchAllData() {
+    const loadingState = document.getElementById('loadingState');
+    if (loadingState) loadingState.style.display = 'block';
+    userGrid.innerHTML = ''; // Clear table
 
-        // Check if response is JSON
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("text/html")) {
-            throw new Error("Server Misconfiguration: API returned HTML. You are likely running on Live Server. Please run 'node server.js' and access localhost:3000.");
-        }
+    const userData = [];
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API Error: ${response.status}`);
-        }
+    for (const username of friends) {
+        try {
+            let baseUrl = '';
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                if (window.location.port === '5500') {
+                    baseUrl = 'http://localhost:3000';
+                }
+            }
+            const res = await fetch(`${baseUrl}/api/user/${username}`);
+            const data = await res.json();
 
-        return await response.json();
-    } catch (error) {
-        if (error.message.includes("Unexpected token") || error.message.includes("is not valid JSON")) {
-            throw new Error("Failed to connect to backend API. Please run 'node server.js' locally.");
+            if (data.error) {
+                console.error(data.error);
+                continue; // Skip invalid users
+            }
+
+            userData.push(processUserData(username, data));
+        } catch (error) {
+            console.error(`Failed to fetch ${username}`, error);
         }
         throw error;
     }
 }
 
 function processUserData(username, data) {
-    if (!data.matchedUser) {
-        throw new Error('User not found');
+    const matchedUser = data.matchedUser;
+    const recentSubs = data.recentSubmissionList || [];
+
+    // 1. Total Solved & Breakdown
+    let totalSolved = 0;
+    let easy = 0, medium = 0, hard = 0;
+
+    if (matchedUser && matchedUser.submitStats) {
+        const acStats = matchedUser.submitStats.acSubmissionNum;
+        // Expected: [{difficulty: 'All', count: X}, {difficulty: 'Easy', count: Y}, ...]
+
+        const allStat = acStats.find(s => s.difficulty === 'All');
+        const easyStat = acStats.find(s => s.difficulty === 'Easy');
+        const mediumStat = acStats.find(s => s.difficulty === 'Medium');
+        const hardStat = acStats.find(s => s.difficulty === 'Hard');
+
+        totalSolved = allStat ? allStat.count : 0;
+        easy = easyStat ? easyStat.count : 0;
+        medium = mediumStat ? mediumStat.count : 0;
+        hard = hardStat ? hardStat.count : 0;
     }
 
-    const stats = data.matchedUser.submitStats.acSubmissionNum;
-    const total = stats.find(s => s.difficulty === 'All').count;
-    const easy = stats.find(s => s.difficulty === 'Easy').count;
-    const medium = stats.find(s => s.difficulty === 'Medium').count;
-    const hard = stats.find(s => s.difficulty === 'Hard').count;
+    // 2. Check "Solved Today"
+    // LeetCode days reset at 00:00 UTC
+    // We get current UTC Day
+    const now = new Date();
+    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
-    // Calculate total solves for breakdown bar calculation
-    // const totalForBar = easy + medium + hard; // usually equal to total
+    // Check if any submission in recent list is >= todayUTC
+    let solvedToday = false;
+    let solvedTodayCount = 0;
+
+    const uniqueProblemsToday = new Set();
+
+    if (recentSubs.length > 0) {
+        for (const sub of recentSubs) {
+            // Timestamp is in seconds, convert to ms
+            const subDate = new Date(parseInt(sub.timestamp) * 1000);
+
+            // Compare dates (ignoring time) & check if accepted
+            // Note: LeetCode sometimes returns 'Accepted' or 'accepted' depending on legacy, usually capitalized.
+            // We'll filter for 'Accepted' status to be accurate to "Solved".
+            if (subDate >= todayUTC && sub.statusDisplay === 'Accepted') {
+                uniqueProblemsToday.add(sub.titleSlug);
+            }
+        }
+    }
+
+    solvedTodayCount = uniqueProblemsToday.size;
+    solvedToday = solvedTodayCount > 0;
+
+    // 3. Simple Streak Calculation (Optimistic - just checking recent list for continuity)
+    // This is hard to do perfectly without full calendar, but we can try basic check on recent queries
+    // or just rely on manual streak if API doesn't return it easily. 
+    // For now, let's just display "Solved Today" count as the primary daily metric.
 
     return {
-        username: data.matchedUser.username || username,
-        totalSolved: total,
+        username,
+        totalSolved,
         easy,
         medium,
         hard,
@@ -186,48 +236,17 @@ function processUserData(username, data) {
     };
 }
 
-function calculateSolvedToday(submissions) {
-    if (!submissions || submissions.length === 0) return 0;
-    const today = new Date().setHours(0, 0, 0, 0);
-    return submissions.filter(sub => {
-        const subDate = new Date(sub.timestamp * 1000).setHours(0, 0, 0, 0);
-        return subDate === today;
-    }).length;
-}
+function renderGrid(data) {
+    // Sort: Solved Today (High to Low), then Total Solved (High to Low)
+    data.sort((a, b) => {
+        if (a.solvedToday !== b.solvedToday) {
+            return a.solvedToday ? -1 : 1;
+        }
+        return b.totalSolved - a.totalSolved;
+    });
 
-function saveUsers() {
-    localStorage.setItem('leetcode-users', JSON.stringify(usersData.map(u => u.username)));
-}
-
-async function loadUsers() {
-    const saved = JSON.parse(localStorage.getItem('leetcode-users') || '[]');
-    if (saved.length === 0) return;
-
-    loadingState.style.display = 'block';
-    usersData = [];
-
-    // Parallel fetch for speed
-    const promises = saved.map(username => fetchUserData(username)
-        .then(data => {
-            if (!data.error) {
-                return processUserData(username, data);
-            }
-            return null;
-        })
-        .catch(e => null)
-    );
-
-    const results = await Promise.all(promises);
-    usersData = results.filter(u => u !== null);
-
-    renderLeaderboard();
-    loadingState.style.display = 'none';
-    lastUpdatedEl.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
-}
-
-function renderLeaderboard() {
-    // Sort by Total Solved (desc)
-    usersData.sort((a, b) => b.totalSolved - a.totalSolved);
+    // Store for export
+    currentLeaderboardData = data;
 
     userGrid.innerHTML = '';
 
@@ -262,12 +281,11 @@ function renderLeaderboard() {
             <td class="global-rank-cell">
                 #${parseInt(user.globalRank).toLocaleString()}
             </td>
-            <td class="contests-cell">${user.attendedContests}</td>
-            <td class="diff-cell">
-                <div class="diff-bar">
-                    <div class="diff-easy" style="width: ${(user.easy / user.totalSolved) * 100}%"></div>
-                    <div class="diff-medium" style="width: ${(user.medium / user.totalSolved) * 100}%"></div>
-                    <div class="diff-hard" style="width: ${(user.hard / user.totalSolved) * 100}%"></div>
+            <td>
+                <div class="diff-text">
+                    <span style="color:#00b8a3">${user.easy}</span> / 
+                    <span style="color:#ffc01e">${user.medium}</span> / 
+                    <span style="color:#ff375f">${user.hard}</span>
                 </div>
                 <div class="sub-text">E: ${user.easy} M: ${user.medium} H: ${user.hard}</div>
             </td>
