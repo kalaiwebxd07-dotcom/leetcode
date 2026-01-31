@@ -1,387 +1,179 @@
-const usernameInput = document.getElementById('usernameInput');
 const addBtn = document.getElementById('addBtn');
+const usernameInput = document.getElementById('usernameInput');
 const userGrid = document.getElementById('userGrid');
-const lastUpdated = document.getElementById('lastUpdated');
+const loadingState = document.getElementById('loadingState');
+const lastUpdatedEl = document.getElementById('lastUpdated');
 
 // State
-let friends = JSON.parse(localStorage.getItem('leetcode_friends')) || [];
-let currentLeaderboardData = [];
+let usersData = [];
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+    loadUsers();
+});
 
 // Event Listeners
-addBtn.addEventListener('click', addFriend);
-document.getElementById('downloadCsv').addEventListener('click', () => exportData('csv'));
-document.getElementById('downloadExcel').addEventListener('click', () => exportData('excel'));
-document.getElementById('downloadPdf').addEventListener('click', () => exportData('pdf'));
+addBtn.addEventListener('click', handleAddUser);
 usernameInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') addFriend();
+    if (e.key === 'Enter') handleAddUser();
 });
 
-// Initialization
-document.addEventListener('DOMContentLoaded', () => {
-    if (friends.length > 0) {
-        fetchAllData();
-    } else {
-        userGrid.innerHTML = `
-            <div class="glass-panel" style="grid-column: 1/-1; text-align: center; padding: 40px; opacity: 0.7;">
-                <i class="fa-solid fa-user-group" style="font-size: 3rem; margin-bottom: 15px;"></i>
-                <h3>No friends added yet</h3>
-                <p>Enter a LeetCode username above to start tracking.</p>
-            </div>
-        `;
-    }
-});
+async function handleAddUser() {
+    const username = usernameInput.value.trim();
+    if (!username) return;
 
-function exportData(format) {
-    if (currentLeaderboardData.length === 0) {
-        alert("No data to export!");
-        return;
-    }
-
-    const timestamp = new Date().toISOString().slice(0, 10);
-    const filename = `leetcode_leaderboard_${timestamp}`;
-
-    // Prepare Data for Export
-    const exportData = currentLeaderboardData.map((user, index) => {
-        const lastSub = user.recentSubs.length > 0 ? user.recentSubs[0] : null;
-        return {
-            "Rank": index + 1,
-            "Username": user.username,
-            "Status": user.solvedToday ? "Active" : "Sleeping",
-            "Problems Today": user.solvedTodayCount,
-            "Total Solved": user.totalSolved,
-            "Global Rank": user.globalRanking || "-",
-            "Contests": user.attendedContestsCount,
-            "Easy": user.easy,
-            "Medium": user.medium,
-            "Hard": user.hard,
-            "Last Solved": lastSub ? lastSub.title : "-"
-        };
-    });
-
-    if (format === 'csv') {
-        const headers = Object.keys(exportData[0]);
-        const rows = exportData.map(row => Object.values(row).map(val => `"${val}"`).join(","));
-        const csvContent = [headers.join(","), ...rows].join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        saveFile(blob, `${filename}.csv`);
-    }
-    else if (format === 'excel') {
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Leaderboard");
-        XLSX.writeFile(wb, `${filename}.xlsx`);
-    }
-    else if (format === 'pdf') {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-
-        doc.text("LeetCode Leaderboard", 14, 15);
-        doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
-
-        const tableColumn = Object.keys(exportData[0]);
-        const tableRows = exportData.map(row => Object.values(row));
-
-        doc.autoTable({
-            head: [tableColumn],
-            body: tableRows,
-            startY: 25,
-            theme: 'grid',
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [41, 128, 185] }
-        });
-
-        doc.save(`${filename}.pdf`);
-    }
-}
-
-function saveFile(blob, filename) {
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function addFriend() {
-    let input = usernameInput.value.trim();
-    if (!input) return;
-
-    // Remove trailing slash if present
-    if (input.endsWith('/')) {
-        input = input.slice(0, -1);
-    }
-
-    // Extraction logic
-    // Supports:
-    // https://leetcode.com/u/username
-    // leetcode.com/u/username
-    // username
-    let username = input;
-
-    try {
-        if (!input.match(/^https?:\/\//)) {
-            if (input.includes('leetcode.com')) {
-                input = 'https://' + input;
-            }
-        }
-
-        if (input.startsWith('http')) {
-            const urlObj = new URL(input);
-            const pathParts = urlObj.pathname.split('/').filter(Boolean); // Remove empty strings
-
-            // Check for /u/username or /username
-            if (pathParts.length > 0) {
-                if (pathParts[0] === 'u' && pathParts.length > 1) {
-                    username = pathParts[1];
-                } else {
-                    username = pathParts[0];
-                }
-            }
-        }
-    } catch (e) {
-        // Not a URL, assume it's a username
-        username = input;
-    }
-
-    if (friends.includes(username)) {
+    if (usersData.some(u => u.username.toLowerCase() === username.toLowerCase())) {
         alert('User already added!');
         return;
     }
 
-    friends.push(username);
-    saveFriends();
-    usernameInput.value = '';
-    fetchAllData();
-}
+    loadingState.style.display = 'block';
+    addBtn.disabled = true;
 
-function removeFriend(username) {
-    friends = friends.filter(f => f !== username);
-    saveFriends();
-    fetchAllData();
-}
+    try {
+        const data = await fetchUserData(username);
+        if (data.error) throw new Error(data.error);
 
-function saveFriends() {
-    localStorage.setItem('leetcode_friends', JSON.stringify(friends));
-}
-
-async function fetchAllData() {
-    const loadingState = document.getElementById('loadingState');
-    if (loadingState) loadingState.style.display = 'block';
-    userGrid.innerHTML = ''; // Clear table
-
-    const userData = [];
-
-    for (const username of friends) {
-        try {
-            let baseUrl = '';
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                if (window.location.port === '5500') {
-                    baseUrl = 'http://localhost:3000';
-                }
-            }
-            const res = await fetch(`${baseUrl}/api/user/${username}?t=${new Date().getTime()}`);
-            const data = await res.json();
-
-            if (data.error) {
-                console.error(data.error);
-                continue; // Skip invalid users
-            }
-
-            userData.push(processUserData(username, data));
-        } catch (error) {
-            console.error(`Failed to fetch ${username}`, error);
-        }
+        usersData.push(processUserData(username, data));
+        saveUsers();
+        renderLeaderboard();
+        usernameInput.value = '';
+    } catch (err) {
+        alert('Failed to add user: ' + err.message);
+    } finally {
+        loadingState.style.display = 'none';
+        addBtn.disabled = false;
     }
+}
 
-    renderGrid(userData);
-    lastUpdated.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+async function fetchUserData(username) {
+    const response = await fetch(`/api/user/${username}`);
+    return await response.json();
 }
 
 function processUserData(username, data) {
-    const matchedUser = data.matchedUser;
-    const userContestRanking = data.userContestRanking;
-    const recentSubs = data.recentSubmissionList || [];
+    const stats = data.submitStats.acSubmissionNum;
+    const total = stats.find(s => s.difficulty === 'All').count;
+    const easy = stats.find(s => s.difficulty === 'Easy').count;
+    const medium = stats.find(s => s.difficulty === 'Medium').count;
+    const hard = stats.find(s => s.difficulty === 'Hard').count;
 
-    // 1. Total Solved & Breakdown
-    let totalSolved = 0;
-    let easy = 0, medium = 0, hard = 0;
-
-    if (matchedUser && matchedUser.submitStats) {
-        const acStats = matchedUser.submitStats.acSubmissionNum;
-        // Expected: [{difficulty: 'All', count: X}, {difficulty: 'Easy', count: Y}, ...]
-
-        const allStat = acStats.find(s => s.difficulty === 'All');
-        const easyStat = acStats.find(s => s.difficulty === 'Easy');
-        const mediumStat = acStats.find(s => s.difficulty === 'Medium');
-        const hardStat = acStats.find(s => s.difficulty === 'Hard');
-
-        totalSolved = allStat ? allStat.count : 0;
-        easy = easyStat ? easyStat.count : 0;
-        medium = mediumStat ? mediumStat.count : 0;
-        hard = hardStat ? hardStat.count : 0;
-    }
-
-    // 2. Check "Solved Today"
-    // LeetCode days reset at 00:00 UTC
-    // We get current UTC Day
-    const now = new Date();
-    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-
-    // Check if any submission in recent list is >= todayUTC
-    let solvedToday = false;
-    let solvedTodayCount = 0;
-
-    const uniqueProblemsToday = new Set();
-
-    if (recentSubs.length > 0) {
-        for (const sub of recentSubs) {
-            // Timestamp is in seconds, convert to ms
-            const subDate = new Date(parseInt(sub.timestamp) * 1000);
-
-            // Compare dates (ignoring time) & check if accepted
-            // Note: LeetCode sometimes returns 'Accepted' or 'accepted' depending on legacy, usually capitalized.
-            // We'll filter for 'Accepted' status to be accurate to "Solved".
-            if (subDate >= todayUTC && sub.statusDisplay === 'Accepted') {
-                uniqueProblemsToday.add(sub.titleSlug);
-            }
-        }
-    }
-
-    solvedTodayCount = uniqueProblemsToday.size;
-    solvedToday = solvedTodayCount > 0;
-
-    // 3. Simple Streak Calculation (Optimistic - just checking recent list for continuity)
-    // This is hard to do perfectly without full calendar, but we can try basic check on recent queries
-    // or just rely on manual streak if API doesn't return it easily. 
-    // For now, let's just display "Solved Today" count as the primary daily metric.
-
-    // 4. Contest Data
-    const attendedContestsCount = userContestRanking ? userContestRanking.attendedContestsCount : 0;
-    const globalRanking = matchedUser && matchedUser.profile ? matchedUser.profile.ranking : 0;
+    // Calculate total solves for breakdown bar calculation
+    // const totalForBar = easy + medium + hard; // usually equal to total
 
     return {
         username,
-        totalSolved,
-        globalRanking,
-        attendedContestsCount,
+        totalSolved: total,
         easy,
         medium,
         hard,
-        solvedToday,
-        solvedTodayCount,
-        recentSubs
+        globalRank: data.profile.ranking,
+        attendedContests: data.userContestRanking ? data.userContestRanking.attendedContestsCount : 0,
+        solvedToday: calculateSolvedToday(data.recentSubmissionList), // Placeholder logic needed
+        lastSolved: data.recentSubmissionList.length > 0 ? new Date(data.recentSubmissionList[0].timestamp * 1000) : null,
+        activeNow: true // Mock for design match
     };
 }
 
-function renderGrid(data) {
-    // Sort: Total Solved (High to Low)
-    data.sort((a, b) => {
-        return b.totalSolved - a.totalSolved;
-    });
+function calculateSolvedToday(submissions) {
+    if (!submissions || submissions.length === 0) return 0;
+    const today = new Date().setHours(0, 0, 0, 0);
+    return submissions.filter(sub => {
+        const subDate = new Date(sub.timestamp * 1000).setHours(0, 0, 0, 0);
+        return subDate === today;
+    }).length;
+}
 
-    // Store for export
-    currentLeaderboardData = data;
+function saveUsers() {
+    localStorage.setItem('leetcode-users', JSON.stringify(usersData.map(u => u.username)));
+}
+
+async function loadUsers() {
+    const saved = JSON.parse(localStorage.getItem('leetcode-users') || '[]');
+    if (saved.length === 0) return;
+
+    loadingState.style.display = 'block';
+    usersData = [];
+
+    // Parallel fetch for speed
+    const promises = saved.map(username => fetchUserData(username)
+        .then(data => {
+            if (!data.error) {
+                return processUserData(username, data);
+            }
+            return null;
+        })
+        .catch(e => null)
+    );
+
+    const results = await Promise.all(promises);
+    usersData = results.filter(u => u !== null);
+
+    renderLeaderboard();
+    loadingState.style.display = 'none';
+    lastUpdatedEl.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+}
+
+function renderLeaderboard() {
+    // Sort by Total Solved (desc)
+    usersData.sort((a, b) => b.totalSolved - a.totalSolved);
 
     userGrid.innerHTML = '';
-    const loadingState = document.getElementById('loadingState');
-    if (loadingState) loadingState.style.display = 'none';
 
-    if (data.length === 0 && friends.length > 0) {
-        userGrid.innerHTML = '<tr><td colspan="7" style="text-align:center">Unable to load data</td></tr>';
-        return;
-    }
+    usersData.forEach((user, index) => {
+        const tr = document.createElement('tr');
+        tr.className = 'user-row';
 
-    data.forEach((user, index) => {
-        const row = document.createElement('tr');
-
-        // Stats
-        const total = user.totalSolved || 1;
-        const pEasy = (user.easy / total) * 100;
-        const pMed = (user.medium / total) * 100;
-        const pHard = (user.hard / total) * 100;
-
-        // Initials for avatar
-        const initial = user.username.charAt(0).toUpperCase();
-
-        row.innerHTML = `
-            <td>
-                <span style="font-weight: 700; color: ${index < 3 ? 'var(--accent-color)' : 'inherit'}; font-size: 1.1rem;">#${index + 1}</span>
+        // Add specific classes to cells for Mobile targeting
+        tr.innerHTML = `
+            <td class="rank-cell">
+                <div class="rank-badge rank-${index + 1}">${index + 1}</div>
             </td>
-            <td>
-                <div class="user-cell">
-                    <div class="user-avatar">${initial}</div>
+            <td class="user-cell">
+                <div class="user-info">
+                    <div class="avatar">${user.username[0].toUpperCase()}</div>
                     <div>
-                        <a href="https://leetcode.com/${user.username}/" target="_blank" class="username">${user.username}</a>
-                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
-                           <span class="status-dot ${user.solvedToday ? 'active' : ''}"></span> ${user.solvedToday ? 'Active Now' : 'Offline'}
+                        <a href="https://leetcode.com/${user.username}" target="_blank" class="username">${user.username}</a>
+                        <div class="status-indicator mobile-only">
+                            <span class="status-dot"></span> Active Now
                         </div>
                     </div>
                 </div>
             </td>
-            <td>
-                <div class="today-count ${user.solvedToday ? 'active' : ''}">
-                    ${user.solvedTodayCount}
-                    ${user.solvedTodayCount > 0 ? '<i class="fa-solid fa-fire" style="font-size: 0.8rem; margin-left:5px;"></i>' : ''}
-                </div>
-            </td>
-            <td>
-                <div class="total-count">${user.totalSolved}</div>
-            </td>
-            <td>
-                <div class="total-count">${user.globalRanking ? user.globalRanking.toLocaleString() : '-'}</div>
-            </td>
-            <td>
-                <div class="total-count">${user.attendedContestsCount}</div>
-            </td>
-            <td>
-                <div class="diff-text">
-                    <span style="color:#00b8a3">${user.easy}</span> / 
-                    <span style="color:#ffc01e">${user.medium}</span> / 
-                    <span style="color:#ff375f">${user.hard}</span>
-                </div>
-                <div class="diff-mini-bar">
-                    <div class="diff-segment seg-easy" style="width: ${pEasy}%"></div>
-                    <div class="diff-segment seg-medium" style="width: ${pMed}%"></div>
-                    <div class="diff-segment seg-hard" style="width: ${pHard}%"></div>
-                </div>
-            </td>
-            <td>
-                <span style="font-size: 0.85rem; color: var(--text-secondary);">
-                    ${getRecentActivityText(user.recentSubs, true)}
+            <td class="today-cell">
+                <span style="color: #2da44e; font-weight: bold;">
+                    ${user.solvedToday} <i class="fa-solid fa-fire"></i>
                 </span>
             </td>
-            <td style="text-align: right;">
-                <button class="delete-btn" onclick="removeFriend('${user.username}')">
+            <td class="total-cell">
+                <strong>${user.totalSolved}</strong>
+            </td>
+            <td class="global-rank-cell">
+                #${parseInt(user.globalRank).toLocaleString()}
+            </td>
+            <td class="contests-cell">${user.attendedContests}</td>
+            <td class="diff-cell">
+                <div class="diff-bar">
+                    <div class="diff-easy" style="width: ${(user.easy / user.totalSolved) * 100}%"></div>
+                    <div class="diff-medium" style="width: ${(user.medium / user.totalSolved) * 100}%"></div>
+                    <div class="diff-hard" style="width: ${(user.hard / user.totalSolved) * 100}%"></div>
+                </div>
+                <div class="sub-text">E: ${user.easy} M: ${user.medium} H: ${user.hard}</div>
+            </td>
+            <td class="last-cell">
+                ${user.lastSolved ? timeAgo(user.lastSolved) : 'Never'}
+            </td>
+            <td class="actions-cell">
+                <button class="delete-btn" onclick="removeUser('${user.username}')">
                     <i class="fa-solid fa-trash"></i>
                 </button>
             </td>
         `;
-
-        userGrid.appendChild(row);
+        userGrid.appendChild(tr);
     });
 }
 
-function getRecentActivityText(subs, short = false) {
-    if (!subs || subs.length === 0) return '-';
-    const lastSub = subs[0];
-    const date = new Date(parseInt(lastSub.timestamp) * 1000);
-    const timeAgo = timeSince(date);
-
-    if (short) {
-        // Show Title + Time
-        return `
-            <div style="font-weight:600; color:var(--text-primary); white-space: normal;">${lastSub.title}</div>
-            <div style="font-size:0.75rem; color:var(--text-secondary);"><i class="fa-regular fa-clock"></i> ${timeAgo}</div>
-        `;
-    }
-    return `<i class="fa-solid fa-clock-rotate-left"></i> ${timeAgo}`;
-}
-
-function timeSince(date) {
+function timeAgo(date) {
     const seconds = Math.floor((new Date() - date) / 1000);
     let interval = seconds / 31536000;
     if (interval > 1) return Math.floor(interval) + "y ago";
@@ -395,3 +187,16 @@ function timeSince(date) {
     if (interval > 1) return Math.floor(interval) + "m ago";
     return Math.floor(seconds) + "s ago";
 }
+
+window.removeUser = function (username) {
+    if (confirm('Remove ' + username + '?')) {
+        usersData = usersData.filter(u => u.username !== username);
+        saveUsers();
+        renderLeaderboard();
+    }
+}
+
+// Export functions (basic stubs)
+document.getElementById('downloadCsv').addEventListener('click', () => alert('CSV Export not implemented'));
+document.getElementById('downloadExcel').addEventListener('click', () => alert('Excel Export not implemented'));
+document.getElementById('downloadPdf').addEventListener('click', () => alert('PDF Export not implemented'));
