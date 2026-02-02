@@ -19,8 +19,18 @@ usernameInput.addEventListener('keypress', (e) => {
 });
 
 async function handleAddUser() {
-    const username = usernameInput.value.trim();
+    let username = usernameInput.value.trim();
     if (!username) return;
+
+    // Clean up input if user pastes full URL
+    // Removes trailing slashes
+    username = username.replace(/\/+$/, '');
+
+    // Handle https://leetcode.com/u/USERNAME or https://leetcode.com/USERNAME
+    if (username.includes('leetcode.com')) {
+        const parts = username.split('/');
+        username = parts[parts.length - 1];
+    }
 
     if (usersData.some(u => u.username.toLowerCase() === username.toLowerCase())) {
         alert('User already added!');
@@ -47,12 +57,35 @@ async function handleAddUser() {
 }
 
 async function fetchUserData(username) {
-    const response = await fetch(`/api/user/${username}`);
-    return await response.json();
+    try {
+        const response = await fetch(`/api/user/${username}`);
+
+        // Check if response is JSON
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("text/html")) {
+            throw new Error("Server Misconfiguration: API returned HTML. You are likely running on Live Server. Please run 'node server.js' and access localhost:3000.");
+        }
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API Error: ${response.status}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        if (error.message.includes("Unexpected token") || error.message.includes("is not valid JSON")) {
+            throw new Error("Failed to connect to backend API. Please run 'node server.js' locally.");
+        }
+        throw error;
+    }
 }
 
 function processUserData(username, data) {
-    const stats = data.submitStats.acSubmissionNum;
+    if (!data.matchedUser) {
+        throw new Error('User not found');
+    }
+
+    const stats = data.matchedUser.submitStats.acSubmissionNum;
     const total = stats.find(s => s.difficulty === 'All').count;
     const easy = stats.find(s => s.difficulty === 'Easy').count;
     const medium = stats.find(s => s.difficulty === 'Medium').count;
@@ -62,12 +95,12 @@ function processUserData(username, data) {
     // const totalForBar = easy + medium + hard; // usually equal to total
 
     return {
-        username,
+        username: data.matchedUser.username || username,
         totalSolved: total,
         easy,
         medium,
         hard,
-        globalRank: data.profile.ranking,
+        globalRank: data.matchedUser.profile.ranking,
         attendedContests: data.userContestRanking ? data.userContestRanking.attendedContestsCount : 0,
         solvedToday: calculateSolvedToday(data.recentSubmissionList), // Placeholder logic needed
         lastSolved: data.recentSubmissionList.length > 0 ? new Date(data.recentSubmissionList[0].timestamp * 1000) : null,

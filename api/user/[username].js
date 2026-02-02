@@ -4,8 +4,20 @@ export const config = {
 };
 
 export default async function handler(req) {
-    const { searchParams } = new URL(req.url);
-    const username = searchParams.get('username');
+    const url = new URL(req.url);
+    let username = url.searchParams.get('username');
+
+    // Fallback: If not in searchParams, try to parse from URL path for Edge Runtime
+    // Expected path: /api/user/USERNAME
+    if (!username) {
+        const pathParts = url.pathname.split('/');
+        // Filter out empty strings to handle different path structures
+        const filteredParts = pathParts.filter(p => p.length > 0);
+        const userIndex = filteredParts.indexOf('user');
+        if (userIndex !== -1 && userIndex + 1 < filteredParts.length) {
+            username = filteredParts[userIndex + 1];
+        }
+    }
 
     if (!username) {
         return new Response(JSON.stringify({ error: 'Username is required' }), {
