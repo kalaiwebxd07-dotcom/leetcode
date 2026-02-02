@@ -140,7 +140,7 @@ async function fetchUserData(username) {
         let baseUrl = '';
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             if (window.location.port === '5500') {
-                baseUrl = 'http://localhost:3000';
+                baseUrl = 'http://127.0.0.1:3000';
             }
         }
 
@@ -161,6 +161,9 @@ async function fetchUserData(username) {
     } catch (error) {
         if (error.message.includes("Unexpected token") || error.message.includes("is not valid JSON")) {
             throw new Error("Failed to connect to backend API. Please run 'node server.js' locally.");
+        }
+        if (error.message === "Failed to fetch") {
+            throw new Error("Backend server not reachable. Is 'node server.js' running?");
         }
         throw error;
     }
@@ -270,9 +273,11 @@ function processUserData(username, data) {
         hard,
         globalRank: data.matchedUser.profile.ranking,
         attendedContests: data.userContestRanking ? data.userContestRanking.attendedContestsCount : 0,
-        solvedToday: calculateSolvedToday(data.recentSubmissionList), // Placeholder logic needed
+        attendedContests: data.userContestRanking ? data.userContestRanking.attendedContestsCount : 0,
+        solvedToday: solvedTodayCount,
         lastSolved: data.recentSubmissionList.length > 0 ? new Date(data.recentSubmissionList[0].timestamp * 1000) : null,
-        activeNow: true // Mock for design match
+        activeNow: true, // Mock for design match
+        recentSubs: recentSubs
     };
 }
 
@@ -300,49 +305,67 @@ function renderGrid(data) {
         const tr = document.createElement('tr');
         tr.className = 'user-row';
 
-        // Add specific classes to cells for Mobile targeting
+        // Calculate percentages for progress bar
+        const total = (user.easy + user.medium + user.hard) || 1;
+        const easyPct = (user.easy / total) * 100;
+        const medPct = (user.medium / total) * 100;
+        const hardPct = (user.hard / total) * 100;
+
+        // Clean up title for display
+        const lastTitle = user.recentSubs && user.recentSubs.length > 0
+            ? user.recentSubs[0].title
+            : 'No problems solved yet';
+
         tr.innerHTML = `
             <td class="rank-cell">
-                <div class="rank-badge rank-${index + 1}">${index + 1}</div>
+                <div class="rank-badge rank-${index + 1}">#${index + 1}</div>
             </td>
             <td class="user-cell">
                 <div class="user-info">
                     <div class="avatar">${user.username[0].toUpperCase()}</div>
                     <div>
                         <a href="https://leetcode.com/${user.username}" target="_blank" class="username">${user.username}</a>
-                        <div class="status-indicator mobile-only">
-                            <span class="status-dot"></span> Active Now
-                        </div>
+                        ${user.solvedToday > 0
+                ? `<div class="active-now"><div class="active-dot"></div> Active Now</div>`
+                : `<div class="sleeping-status"><div class="sleeping-dot"></div> Sleeping</div>`
+            }
                     </div>
                 </div>
             </td>
             <td class="today-cell">
-                <span style="color: #2da44e; font-weight: bold;">
-                    ${user.solvedToday} <i class="fa-solid fa-fire"></i>
+                <span style="color: ${user.solvedToday > 0 ? '#2da44e' : '#8b949e'}; font-weight: bold; font-size: 1.1rem;">
+                    ${user.solvedToday} ${user.solvedToday > 0 ? '<i class="fa-solid fa-fire" style="color: #2da44e;"></i>' : ''}
                 </span>
             </td>
             <td class="total-cell">
-                <strong>${user.totalSolved}</strong>
+                <strong style="font-size: 1rem; color: #e6edf3;">${user.totalSolved}</strong>
             </td>
             <td class="global-rank-cell">
-                #${parseInt(user.globalRank).toLocaleString()}
+                <div style="color: #8b949e;">${user.globalRanking ? user.globalRanking.toLocaleString() : '-'}</div>
             </td>
-            <td>
-                <div class="total-count">${user.globalRanking ? user.globalRanking.toLocaleString() : '-'}</div>
+            <td class="contests-cell">
+                <div style="color: #8b949e;">${user.attendedContestsCount}</div>
             </td>
-            <td>
-                <div class="total-count">${user.attendedContestsCount}</div>
-            </td>
-            <td>
-                <div class="diff-text">
-                    <span style="color:#00b8a3">${user.easy}</span> / 
-                    <span style="color:#ffc01e">${user.medium}</span> / 
+            <td class="difficulty-cell">
+                <div class="diff-stats">
+                    <span style="color:#00b8a3">${user.easy}</span>
+                    <span style="color:#58a6ff">/</span>
+                    <span style="color:#ffc01e">${user.medium}</span>
+                    <span style="color:#58a6ff">/</span>
                     <span style="color:#ff375f">${user.hard}</span>
                 </div>
-                <div class="sub-text">E: ${user.easy} M: ${user.medium} H: ${user.hard}</div>
+                <div class="difficulty-bar">
+                    <div class="diff-segment diff-easy" style="width: ${easyPct}%"></div>
+                    <div class="diff-segment diff-medium" style="width: ${medPct}%"></div>
+                    <div class="diff-segment diff-hard" style="width: ${hardPct}%"></div>
+                </div>
             </td>
-            <td class="last-cell">
-                ${user.lastSolved ? timeAgo(user.lastSolved) : 'Never'}
+            <td class="last-solved-cell">
+                 <a href="#" class="last-solved-title" title="${lastTitle}">${lastTitle}</a>
+                 <div class="last-solved-time">
+                    <i class="fa-regular fa-clock"></i>
+                    ${user.lastSolved ? timeAgo(user.lastSolved) : 'Never'}
+                 </div>
             </td>
             <td class="actions-cell">
                 <button class="delete-btn" onclick="removeUser('${user.username}')">
@@ -379,6 +402,71 @@ window.removeUser = function (username) {
 }
 
 // Export functions
-// CSV is handled by exportToCSV attached earlier
-document.getElementById('downloadExcel').addEventListener('click', () => alert('Excel Export not implemented'));
-document.getElementById('downloadPdf').addEventListener('click', () => alert('PDF Export not implemented'));
+document.getElementById('downloadExcel').addEventListener('click', () => {
+    if (!currentLeaderboardData || currentLeaderboardData.length === 0) {
+        alert("No data to export!");
+        return;
+    }
+
+    const wsData = currentLeaderboardData.map((user, index) => ({
+        Rank: index + 1,
+        User: user.username,
+        "Solved Today": user.solvedToday,
+        "Total Solved": user.totalSolved,
+        "Easy": user.easy,
+        "Medium": user.medium,
+        "Hard": user.hard,
+        "Global Rank": user.globalRank,
+        "Last Solved": user.lastSolved ? new Date(user.lastSolved).toLocaleString() : 'Never'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Leaderboard");
+    XLSX.writeFile(wb, "LeetCode_Leaderboard.xlsx");
+});
+
+document.getElementById('downloadPdf').addEventListener('click', () => {
+    if (!currentLeaderboardData || currentLeaderboardData.length === 0) {
+        alert("No data to export!");
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('l', 'mm', 'a4');
+
+    doc.setFontSize(18);
+    doc.text("LeetCode Leaderboard", 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+
+    const tableColumn = ["Rank", "User", "Today", "Total", "Global Rank", "Contests", "Difficulty", "Last Solved"];
+    const tableRows = [];
+
+    currentLeaderboardData.forEach((user, index) => {
+        const rowData = [
+            index + 1,
+            user.username,
+            user.solvedToday,
+            user.totalSolved,
+            user.globalRank ? user.globalRank.toLocaleString() : '-',
+            user.attendedContests,
+            `${user.easy} / ${user.medium} / ${user.hard}`,
+            (user.recentSubs && user.recentSubs.length > 0 ? user.recentSubs[0].title : '') +
+            (user.lastSolved ? `\n${new Date(user.lastSolved).toLocaleDateString()}` : 'Never')
+        ];
+        tableRows.push(rowData);
+    });
+
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 40,
+        theme: 'grid',
+        styles: { fontSize: 10, cellPadding: 3 },
+        headStyles: { fillColor: [22, 27, 34] }, // Dark header
+    });
+
+    doc.save("LeetCode_Leaderboard.pdf");
+});

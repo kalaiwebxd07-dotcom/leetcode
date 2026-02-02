@@ -220,6 +220,72 @@ th {
 
 td {
     background: rgba(22, 27, 34, 0.4);
+    vertical-align: middle;
+    padding: 16px;
+}
+
+/* Column Alignment */
+/* 1: Rank (#) - center */
+th:nth-child(1),
+td:nth-child(1) {
+    text-align: center;
+    width: 60px;
+}
+
+/* 2: User - left (default) */
+th:nth-child(2),
+td:nth-child(2) {
+    text-align: left;
+    min-width: 200px;
+}
+
+/* 3: Today - center */
+th:nth-child(3),
+td:nth-child(3) {
+    text-align: center;
+    width: 100px;
+}
+
+/* 4: Total - center */
+th:nth-child(4),
+td:nth-child(4) {
+    text-align: center;
+    width: 100px;
+}
+
+/* 5: Global Rank - center */
+th:nth-child(5),
+td:nth-child(5) {
+    text-align: center;
+    width: 140px;
+}
+
+/* 6: Contests - center */
+th:nth-child(6),
+td:nth-child(6) {
+    text-align: center;
+    width: 100px;
+}
+
+/* 7: Difficulty - left but with padding */
+th:nth-child(7),
+td:nth-child(7) {
+    text-align: left;
+    width: 200px;
+}
+
+/* 8: Last Solved - left */
+th:nth-child(8),
+td:nth-child(8) {
+    text-align: left;
+    width: 200px;
+}
+
+/* 9: Actions - center */
+th:nth-child(9),
+td:nth-child(9) {
+    text-align: center;
+    width: 60px;
 }
 
 tr.user-row td:first-child {
@@ -294,48 +360,112 @@ tr.user-row:hover {
     text-decoration: none;
 }
 
-.diff-bar {
+/* Difficulty Bar */
+.difficulty-bar {
     display: flex;
     height: 6px;
+    width: 120px;
     border-radius: 3px;
     overflow: hidden;
-    width: 100px;
-    background: #21262d;
-    margin-top: 6px;
+    background: #2d333b;
+    margin-top: 8px;
+}
+
+.diff-segment {
+    height: 100%;
 }
 
 .diff-easy {
-    background: #00b8a3;
+    background-color: #00b8a3;
 }
 
 .diff-medium {
-    background: #ffc01e;
+    background-color: #ffc01e;
 }
 
 .diff-hard {
-    background: #ff375f;
+    background-color: #ff375f;
 }
 
-.stats-cell {
+.diff-stats {
     display: flex;
-    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
 }
 
-.sub-text {
-    font-size: 0.8rem;
+.active-now {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #3fb950;
+    font-size: 0.75rem;
+    margin-top: 4px;
+}
+
+.sleeping-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     color: #8b949e;
+    /* Grey for sleeping */
+    font-size: 0.75rem;
+    margin-top: 4px;
+}
+
+.active-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #3fb950;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #3fb950;
+}
+
+.sleeping-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #8b949e;
+    border-radius: 50%;
+}
+
+/* Last Solved */
+.last-solved-cell {
+    max-width: 200px;
+}
+
+.last-solved-title {
+    color: #e6edf3;
+    font-weight: 500;
+    font-size: 0.9rem;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    margin-bottom: 4px;
+    display: block;
+    line-height: 1.3;
+}
+
+.last-solved-time {
+    color: #8b949e;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .delete-btn {
     background: transparent;
     color: #8b949e;
     padding: 8px;
-    font-size: 1.1rem;
+    font-size: 1rem;
+    opacity: 0.5;
+    transition: opacity 0.2s;
 }
 
 .delete-btn:hover {
-    background: rgba(248, 81, 73, 0.1);
+    background: transparent;
     color: var(--danger-color);
+    opacity: 1;
 }
 
 .icon-btn {
@@ -383,31 +513,93 @@ tr.user-row:hover {
     color: black;
 }
 
-/* MOBILE DESIGN - CARD LAYOUT */
+/* Mobile Responsiveness - Premium & Clean */
 @media (max-width: 768px) {
+
+    /* 1. Global Container Fixes */
     .container {
-        padding: 10px;
-    }
-
-    .input-section {
-        flex-direction: column;
-        padding: 16px;
-        margin-bottom: 24px;
-    }
-
-    button#addBtn {
+        padding: 12px;
         width: 100%;
-        justify-content: center;
-        font-size: 1.1rem;
-        padding: 14px;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
-    /* Hide standard table headers */
+    /* 2. Compact Header */
+    header {
+        margin-top: 10px;
+        margin-bottom: 20px;
+    }
+
+    .logo {
+        font-size: 1.4rem;
+        /* Much smaller */
+        gap: 8px;
+        margin-bottom: 4px;
+        justify-content: center;
+    }
+
+    .logo i {
+        font-size: 1.4rem;
+    }
+
+    .logo h1 {
+        font-size: 1.4rem;
+    }
+
+    .subtitle {
+        font-size: 0.9rem;
+        padding: 0 10px;
+    }
+
+    /* 3. Compact Input Section */
+    .input-section {
+        padding: 12px;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    input {
+        padding: 10px 12px;
+        font-size: 0.95rem;
+    }
+
+    button {
+        padding: 10px 16px;
+        font-size: 0.95rem;
+    }
+
+    /* 4. Leaderboard Header Alignment */
+    .leaderboard-header {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .leaderboard-header h2 {
+        font-size: 1.2rem;
+        margin: 0;
+    }
+
+    .leaderboard-header>div {
+        /* Actions container */
+        width: auto;
+        gap: 10px;
+    }
+
+    .refresh-indicator {
+        font-size: 0.75rem;
+        text-align: right;
+    }
+
+    /* 5. Hide Standard Table Headers */
     thead {
         display: none;
     }
 
-    /* Convert specific rows to Cards */
+    /* 6. Card Layout Refinements: Robust Flexbox */
     tbody {
         display: flex;
         flex-direction: column;
@@ -415,213 +607,156 @@ tr.user-row:hover {
     }
 
     tr.user-row {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 12px;
+        padding: 16px;
+        margin: 0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+
         display: flex;
-        flex-direction: column;
-        background: var(--glass-bg);
-        border: var(--glass-border);
-        border-radius: 16px;
-        padding: 20px;
-        align-items: center;
-        text-align: center;
-        position: relative;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
     }
 
-    /* Reset TD styles */
     tr.user-row td {
         background: transparent;
-        padding: 4px;
+        padding: 0;
         border: none;
         display: block;
-        width: 100%;
+        width: auto;
     }
 
-    tr.user-row td:first-child,
-    tr.user-row td:last-child {
-        border-radius: 0;
-    }
-
-    /* 1. Rank (#1) */
+    /* 1. Header: Rank (Left) & User (Right) */
     .rank-cell {
         order: 1;
-        margin-bottom: 12px;
+        width: auto;
     }
 
-    .rank-badge {
-        width: 40px;
-        height: 25px;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        margin: 0 auto;
-    }
-
-    /* 2. User Info (Avatar + Name) */
-    /* We need to restructure or style the inner content */
     .user-cell {
         order: 2;
+        width: auto;
+        flex-grow: 1;
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin-bottom: 16px;
+        justify-content: flex-end;
     }
 
     .user-info {
-        flex-direction: column;
+        flex-direction: row;
+        align-items: center;
         gap: 8px;
     }
 
     .avatar {
-        width: 60px;
-        height: 60px;
-        font-size: 1.5rem;
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
     }
 
     .username {
-        font-size: 1.2rem;
-        color: white;
+        font-size: 1.1rem;
     }
 
-    td:nth-of-type(5) {
-        order: 5;
-    }
+    /* 2. Stats Row: Today | Total | Rank */
+    /* We need these 3 to be on a new full-width line. */
+    /* Since tr is flex-wrap, we can force a break by making a container or using width 100% on a spacer? */
+    /* Better: Use specific widths. */
 
-    td:nth-of-type(6) {
-        order: 6;
-    }
-
-    td:nth-of-type(7) {
-        order: 7;
-    }
-
-    td:nth-of-type(8) {
-        order: 8;
-    }
-
-    /* Delete Button (Centered at bottom) */
-    td:nth-last-of-type(1) {
-        order: 7;
-        position: static;
-        margin-top: 15px;
-        border-top: 1px solid var(--glass-border);
-        padding-top: 15px;
-    }
-
-    .status-dot {
-        width: 8px;
-        height: 8px;
-        background: #2da44e;
-        border-radius: 50%;
-    }
-
-    /* Horizontal Dividers for Stats */
-    .mobile-divider {
-        display: block;
-        width: 100%;
-        height: 1px;
-        background: #30363d;
-        margin: 8px 0;
-    }
-
-    /* 3. Solved Today */
-    .today-cell {
+    .today-cell,
+    .total-cell,
+    .global-rank-cell {
         order: 3;
+        width: 30%;
+        /* 3 columns roughly */
+        text-align: center;
+        margin-top: 8px;
+        padding-top: 8px;
         border-top: 1px solid #30363d;
-        padding-top: 12px !important;
-        margin-top: 4px;
     }
 
+    /* Stats labels */
     .today-cell::before {
-        content: "Solved Today";
+        content: "Today";
         display: block;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         color: #8b949e;
-        margin-bottom: 4px;
-    }
-
-    /* 4. Total Solved */
-    .total-cell {
-        order: 4;
-        border-top: 1px solid #30363d;
-        padding-top: 12px !important;
+        margin-bottom: 2px;
     }
 
     .total-cell::before {
-        content: "Total Solved";
+        content: "Total";
         display: block;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
+        color: #8b949e;
+        margin-bottom: 2px;
+    }
+
+    .global-rank-cell::before {
+        content: "Rank";
+        display: block;
+        font-size: 0.75rem;
+        color: #8b949e;
+        margin-bottom: 2px;
+    }
+
+    /* 3. Difficulty (Available full width if needed, or row 4) */
+    .difficulty-cell {
+        order: 4;
+        width: 100%;
+        margin-top: 12px;
+        text-align: center;
+    }
+
+    .difficulty-cell::before {
+        content: "Difficulty";
+        display: block;
+        font-size: 0.75rem;
         color: #8b949e;
         margin-bottom: 4px;
     }
 
-    /* 5. Global Rank */
-    .global-rank-cell {
+    /* 4. Footer: Contests (Left) & Last Solved (Right) */
+    .contests-cell {
         order: 5;
-        border-top: 1px solid #30363d;
-        padding-top: 12px !important;
-        padding-bottom: 12px !important;
+        width: 45%;
+        text-align: left;
+        margin-top: 8px;
     }
 
-    td:nth-of-type(5)::before {
-        content: "Global Rank";
-        display: block;
+    .contests-cell::before {
+        content: "Contests: ";
         font-size: 0.75rem;
-        color: var(--text-secondary);
-        margin-bottom: 2px;
-    }
-
-    td:nth-of-type(6)::before {
-        content: "Contests";
-        display: block;
-        font-size: 0.75rem;
-        color: var(--text-secondary);
-        margin-bottom: 2px;
-    }
-
-    td:nth-of-type(7)::before {
-        content: "Difficulty Split";
-        display: block;
-        font-size: 0.8rem;
         color: #8b949e;
-        margin-bottom: 4px;
     }
 
-    td:nth-of-type(3),
-    td:nth-of-type(4),
-    td:nth-of-type(5),
-    td:nth-of-type(6),
-    td:nth-of-type(7) {
-        border-top: 1px solid var(--glass-border);
-        padding: 12px 0;
-        text-align: center;
+    .last-solved-cell {
+        order: 6;
+        width: 50%;
+        text-align: right;
+        margin-top: 8px;
+        font-size: 0.75rem;
     }
 
-    /* Last Solved */
-    td:nth-of-type(8) {
-        border-top: 1px solid var(--glass-border);
-        padding-top: 12px;
-        text-align: center;
+    /* Hide label for last solved to save space, rely on context */
+
+    /* 5. Delete Button (Order 7) */
+    /* td:last-child targets the Last Solved if it's the last one? No, Delete is appended last likely. */
+    /* Let's look at script.js loop... ah Delete might be injected or static? */
+    /* In previous view_file script.js, I didn't see the Delete button row. It might be added by another function or missing? */
+    /* Wait, the user has a remove button. */
+    /* Assuming it's the actual last child */
+
+    tr.user-row td:last-child {
+        order: 10;
+        width: 100%;
+        margin-top: 16px;
+        display: flex;
+        justify-content: center;
     }
 
     .delete-btn {
-        background: rgba(248, 81, 73, 0.15);
-        color: var(--danger-color);
-        padding: 8px 16px;
-        border-radius: 6px;
-        width: auto;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        font-size: 0.9rem;
-    }
-
-    .delete-btn:hover {
-        background: var(--danger-color);
-        color: white;
-    }
-
-    /* Add text label specifically for mobile */
-    .delete-btn::after {
-        content: "Remove Friend";
-        font-weight: 600;
+        width: 100%;
     }
 }
